@@ -15,9 +15,17 @@
 ;;   (mf/base58btc some-bytes) (mf/base32 some-bytes)
 ;;   (mf/cid->bytes "bafkrei…")                  ;=> the 0x01 0x55 0x12 0x20 … bytes
 (ns multiformats.core
-  (:require [clojure.string :as str])
-  (:import (java.security MessageDigest)
-           (java.io ByteArrayOutputStream)))
+  #?(:clj (:require [clojure.string :as str]))
+  #?(:clj (:import (java.security MessageDigest)
+                   (java.io ByteArrayOutputStream))))
+
+;; The CID/byte machinery is :clj — like every actor cid.cljc in this ecosystem,
+;; content addressing runs server/build-side (bb/JVM), not in the browser. The
+;; :cljs branch (bottom of file) exposes the SAME public API as throwing stubs so
+;; a .cljc consumer compiles cleanly under ClojureScript and fails loudly if it
+;; ever tries to hash in the browser (matching the prior per-actor contract).
+#?(:clj
+(do
 
 ;; ── hashing ───────────────────────────────────────────────────────────────────
 (defn sha256 ^bytes [^bytes b]
@@ -141,3 +149,28 @@
   (let [s (str/replace s #"\s" "")]
     (byte-array (map (fn [[a b]] (unchecked-byte (Integer/parseInt (str a b) 16)))
                      (partition 2 s)))))
+
+)) ;; end #?(:clj (do …))
+
+;; ── ClojureScript: same public API, throwing (content addressing is :clj-only) ──
+#?(:cljs
+(do
+  (def codec-raw 0x55)
+  (def codec-dag-cbor 0x71)
+  (defn- nope [n] (throw (ex-info (str "multiformats.core/" n " is :clj-only "
+                                       "(content addressing runs build/server-side, not in cljs)") {})))
+  (defn sha256 [& _] (nope "sha256"))
+  (defn varint [& _] (nope "varint"))
+  (defn base58btc [& _] (nope "base58btc"))
+  (defn base58btc-decode [& _] (nope "base58btc-decode"))
+  (defn base32 [& _] (nope "base32"))
+  (defn base32-decode [& _] (nope "base32-decode"))
+  (defn multihash-sha256 [& _] (nope "multihash-sha256"))
+  (defn cidv1 [& _] (nope "cidv1"))
+  (defn cidv1-raw [& _] (nope "cidv1-raw"))
+  (defn cidv1-dag-cbor [& _] (nope "cidv1-dag-cbor"))
+  (defn kotoba-cid [& _] (nope "kotoba-cid"))
+  (defn cid->bytes [& _] (nope "cid->bytes"))
+  (defn cid-of-file [& _] (nope "cid-of-file"))
+  (defn hexify [& _] (nope "hexify"))
+  (defn unhex [& _] (nope "unhex"))))

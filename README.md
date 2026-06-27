@@ -1,6 +1,6 @@
 # multiformats-clj
 
-**base58 · base32 · varint · sha2-256 multihash · CIDv1 — in pure Clojure, no
+**base58 · base32 · varint · sha2-256 multihash · CIDv1 — portable `.cljc`, pure Clojure, no
 native deps, babashka-friendly. Compute a file's CID without shelling out to
 `ipfs`.**
 
