@@ -19,6 +19,54 @@
   #?(:clj (:import (java.security MessageDigest)
                    (java.io ByteArrayOutputStream))))
 
+;; ── base58btc — PORTABLE (clj + cljs): base-256 ↔ base-58 by integer division,
+;; no BigInteger, so it runs in the browser too (did:key 'z' multibase). ───────
+(def ^:private b58-alphabet "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
+(def ^:private b58-idx (into {} (map-indexed (fn [i c] [c i]) b58-alphabet)))
+
+(defn- ->ints [data] (map #(bit-and (int %) 0xff) (seq data)))
+
+(defn base58btc
+  "Bytes (a byte-array or a seq of 0..255 ints) → base58btc (Bitcoin alphabet)
+   String. Pure integer arithmetic — works in Clojure AND ClojureScript."
+  ^String [data]
+  (let [in (->ints data)
+        digits (reduce
+                (fn [digits b]
+                  (let [[digits carry]
+                        (reduce (fn [[ds carry] d]
+                                  (let [v (+ (* d 256) carry)]
+                                    [(conj ds (rem v 58)) (quot v 58)]))
+                                [[] b] digits)]
+                    (loop [digits digits carry carry]
+                      (if (pos? carry)
+                        (recur (conj digits (rem carry 58)) (quot carry 58))
+                        digits))))
+                [] in)
+        nzeros (count (take-while zero? in))]
+    (str (apply str (repeat nzeros \1))
+         (apply str (map #(nth b58-alphabet %) (rseq digits))))))
+
+(defn base58btc-decode
+  "base58btc String → raw bytes (a byte-array in Clojure, an int vector in cljs).
+   Leading '1's decode to leading zero bytes. Pure integer arithmetic, portable."
+  [^String s]
+  (let [bytes (reduce
+               (fn [bs c]
+                 (let [[bs carry]
+                       (reduce (fn [[acc carry] d]
+                                 (let [v (+ (* d 58) carry)]
+                                   [(conj acc (rem v 256)) (quot v 256)]))
+                               [[] (b58-idx c)] bs)]
+                   (loop [bs bs carry carry]
+                     (if (pos? carry)
+                       (recur (conj bs (rem carry 256)) (quot carry 256))
+                       bs))))
+               [] (seq s))
+        nzeros (count (take-while #(= \1 %) s))
+        out (concat (repeat nzeros 0) (rseq bytes))]
+    #?(:clj (byte-array (map unchecked-byte out)) :cljs (vec out))))
+
 ;; The CID/byte machinery is :clj — like every actor cid.cljc in this ecosystem,
 ;; content addressing runs server/build-side (bb/JVM), not in the browser. The
 ;; :cljs branch (bottom of file) exposes the SAME public API as throwing stubs so
@@ -40,26 +88,7 @@
         (do (.write out (int (bit-or (bit-and v 0x7f) 0x80)))
             (recur (unsigned-bit-shift-right v 7)))))))
 
-;; ── base58btc ─────────────────────────────────────────────────────────────────
-(def ^:private b58-alphabet "123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz")
-(def ^:private b58-idx (into {} (map-indexed (fn [i c] [c i]) b58-alphabet)))
-
-(defn base58btc ^String [^bytes b]
-  (let [n (BigInteger. 1 b) fifty8 (biginteger 58)]
-    (loop [n n acc ""]
-      (if (pos? (.signum n))
-        (recur (.divide n fifty8) (str (.charAt b58-alphabet (.intValue (.mod n fifty8))) acc))
-        (str (apply str (repeat (count (take-while zero? (seq b))) \1)) acc)))))
-
-(defn base58btc-decode ^bytes [^String s]
-  (let [n (reduce (fn [acc c] (.add (.multiply acc (biginteger 58)) (biginteger (int (b58-idx c)))))
-                  BigInteger/ZERO (seq s))
-        body (if (zero? (.signum n))
-               (byte-array 0)                        ; value 0 carries no body; zeros come from leading '1's
-               (let [ba (.toByteArray n)]            ; strip BigInteger sign byte
-                 (if (and (> (count ba) 1) (zero? (aget ba 0))) (byte-array (rest (seq ba))) ba)))
-        leading (count (take-while #(= \1 %) s))]
-    (byte-array (concat (repeat leading (byte 0)) (seq body)))))
+;; base58btc lives in the PORTABLE section above (clj + cljs).
 
 ;; ── base32 (RFC 4648 lower, no padding) — the multibase 'b' alphabet ──────────
 (def ^:private b32-alphabet "abcdefghijklmnopqrstuvwxyz234567")
@@ -161,8 +190,6 @@
                                        "(content addressing runs build/server-side, not in cljs)") {})))
   (defn sha256 [& _] (nope "sha256"))
   (defn varint [& _] (nope "varint"))
-  (defn base58btc [& _] (nope "base58btc"))
-  (defn base58btc-decode [& _] (nope "base58btc-decode"))
   (defn base32 [& _] (nope "base32"))
   (defn base32-decode [& _] (nope "base32-decode"))
   (defn multihash-sha256 [& _] (nope "multihash-sha256"))
