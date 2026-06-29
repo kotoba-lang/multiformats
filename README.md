@@ -1,5 +1,7 @@
 # multiformats-clj
 
+[![CI](https://github.com/kotoba-lang/multiformats/actions/workflows/ci.yml/badge.svg)](https://github.com/kotoba-lang/multiformats/actions/workflows/ci.yml)
+
 **base58 · base32 · varint · sha2-256 multihash · CIDv1 — portable `.cljc`, pure Clojure, no
 native deps, babashka-friendly. Compute a file's CID without shelling out to
 `ipfs`.**
