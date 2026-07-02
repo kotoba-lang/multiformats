@@ -43,3 +43,22 @@ jobs:
 
       - name: Run tests
         run: clojure -M:test
+
+  test-cljs:
+    name: shadow-cljs node-test (real ClojureScript, not just .cljc-named)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('package.json') }}
+
+      - run: npm install
+      - run: npm run test:cljs

@@ -3,3 +3,7 @@ target/
 .clj-kondo/
 .lsp/
 *.class
+node_modules/
+out/
+.shadow-cljs/
+package-lock.json

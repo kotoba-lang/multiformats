@@ -131,10 +131,20 @@
     #?(:clj (byte-array out) :cljs (vec out))))
 
 ;; ── multihash (sha2-256 = 0x12, length 0x20) ──────────────────────────────────
+;; Returns an array-like on both platforms (byte-array / Uint8Array), NOT a
+;; plain vector on :cljs -- `aget`/`alength` (as this namespace's own docs
+;; imply are safe on any "bytes" this library hands back, and as
+;; `boundary?`-style consumers downstream do) silently return nil/0 on a
+;; ClojureScript PersistentVector instead of throwing, which is exactly the
+;; kind of gap that stays invisible until it corrupts output.
 (defn multihash-sha256 [b]
   (let [h (sha256 b)]
     #?(:clj (byte-array (concat [(unchecked-byte 0x12) (unchecked-byte 0x20)] (seq h)))
-       :cljs (into [0x12 0x20] (seq h)))))
+       :cljs (let [out (js/Uint8Array. (+ 2 (alength h)))]
+               (aset out 0 0x12)
+               (aset out 1 0x20)
+               (.set out h 2)
+               out))))
 
 ;; ── CIDv1 ─────────────────────────────────────────────────────────────────────
 ;; codec multicodecs: raw = 0x55, dag-pb = 0x70, dag-cbor = 0x71
