@@ -81,6 +81,17 @@
   (is (thrown? #?(:clj Exception :cljs js/Error) (mf/unhex "1")))
   (is (thrown? #?(:clj Exception :cljs js/Error) (mf/unhex "abc"))))
 
+(deftest base32-decode-rejects-invalid-characters
+  ;; b32-idx returns nil for a character outside the base32 alphabet, and
+  ;; (int nil) throws on :clj (fails closed) but silently returns 0 on
+  ;; :cljs (confirmed via a real compiled build) -- an invalid character
+  ;; used to silently decode as if it were 'a' (alphabet index 0) on
+  ;; :cljs instead of raising. "1", "0", "8", "9", and uppercase letters
+  ;; are all outside this lowercase-only, no-padding RFC 4648 alphabet.
+  (doseq [bad ["1" "0" "8" "9" "A" "="]]
+    (is (thrown? #?(:clj Exception :cljs js/Error) (mf/base32-decode bad))
+        (str "must reject invalid base32 character: " bad))))
+
 ;; ── CID decode round-trips its bytes ──────────────────────────────────────────
 (deftest cid-bytes-roundtrip
   (let [c (mf/cidv1-raw (utf8-bytes "round-trip"))]

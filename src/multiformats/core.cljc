@@ -122,7 +122,23 @@
   (let [out (loop [cs (seq s) buf 0 bits 0 acc []]
               (if (empty? cs)
                 acc
-                (let [buf (bit-or (bit-shift-left buf 5) (int (b32-idx (first cs))))
+                (let [ch (first cs)
+                      ;; `b32-idx` returns nil for a character outside the
+                      ;; alphabet -- `(int nil)` throws a NullPointerException
+                      ;; on :clj (fails closed), but on :cljs `int` compiles
+                      ;; through JS's `|0` coercion, where `null|0` and
+                      ;; `undefined|0` are BOTH silently 0 (confirmed via a
+                      ;; real compiled shadow-cljs build, not just reasoned
+                      ;; about) -- so an invalid character used to silently
+                      ;; decode as if it were 'a' (alphabet index 0) on
+                      ;; :cljs instead of raising, the same platform-
+                      ;; inconsistent "fails closed on :clj, silently wrong
+                      ;; on :cljs" bug class already found and fixed in this
+                      ;; ecosystem's kotoba-lang/json (decode's number
+                      ;; parsing) and this repo's own unhex.
+                      idx (or (b32-idx ch)
+                              (throw (ex-info "multiformats: invalid base32 character" {:char ch})))
+                      buf (bit-or (bit-shift-left buf 5) idx)
                       bits (+ bits 5)]
                   (if (>= bits 8)
                     (recur (rest cs) buf (- bits 8)
