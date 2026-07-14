@@ -24,8 +24,8 @@
 ;; construction. Only `cid-of-file` stays :clj-only — that's genuine file I/O, not
 ;; a gap.
 (ns multiformats.core
-  (:require [clojure.string :as str])
-  #?(:cljs (:require ["@noble/hashes/sha2.js" :as noble-sha2]))
+  (:require [clojure.string :as str]
+            #?(:cljs ["@noble/hashes/sha2.js" :as noble-sha2]))
   #?(:clj (:import (java.security MessageDigest)
                    (java.io ByteArrayOutputStream))))
 
